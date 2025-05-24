@@ -1,0 +1,12 @@
+Program -> Decls Stmts
+Decls -> ε | Decls Decl SCO
+Decl -> Type ID | Type ID LBK NUM RBK | Type ID LPA Params RPA LBR Decls Stmts RBR
+Type -> INT | FLOAT | VOID
+Params -> ε | Params Param SCO
+Param -> Type ID | Type ID LBK RBK | Type ID LPA Type RPA
+Stmts -> Stmt | Stmts SCO Stmt
+Stmt -> ε | ID ASG Expr | ID LBK Expr RBK ASG Expr | IF LPA Cond RPA Stmt | IF LPA Cond RPA Stmt ELSE Stmt | WHILE LPA Cond RPA Stmt | RETURN Expr | LBR Stmts RBR | ID LPA Args RPA
+Expr -> NUM | FLO | ID | ID LBK Expr RBK | Expr ADD Expr | Expr MUL Expr | LPA Expr RPA | ID LPA Args RPA
+Cond -> Expr ROP Expr | Expr
+Args -> ε | Args Arg CMA
+Arg -> Expr | ID LBK RBK | ID LBR RBR
