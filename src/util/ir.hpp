@@ -4,13 +4,17 @@
 #include <vector>
 #include <unordered_map>
 #include <iostream>
+#include <set>
+#include <sstream>
 #include "type.hpp"
 #include "symboltable.hpp"
 #include "symbol.hpp"
+#include "storage.hpp"
 
 // 前向声明
 class BasicBlock;
 class IRInstr;
+class Instr;
 
 /**
  * IR值的基类，所有被操作的值都继承自此类
@@ -33,14 +37,14 @@ public:
 class IRSym : public IRVal {
 private:
     std::string name;
-
+    Storage* storage {nullptr};
 public:
     IRSym(IType* type, const std::string& name) : IRVal(type), name(name) {}
     
     const std::string& getName() const { return name; }
     
     std::string toString() const override {
-        return name + ":" + (type ? type->toString() : "void");
+        return name + ":" + (type ? type->toString() : "void") + (storage == nullptr ? "" : storage->toString());
     }
     
     bool operator==(const IRSym* other) const {
@@ -50,6 +54,9 @@ public:
     bool operator!=(const IRSym* other) const {
         return !(*this == other);
     }
+
+    void setStorage(Storage* s) { storage = s; }
+    Storage* getStorage() { return storage; }
 };
 
 /**
@@ -105,16 +112,26 @@ public:
  * 全局变量定义
  */
 class IRVar : public IRDef {
-
 public:
-    IRVar(IRSym* sym)
-        : IRDef(sym) {}
+    IRVar(IRSym* sym);
 
-    IRVar(Var* var) : IRDef(new IRSym(var->getType(), "@"+var->getName())) {}
+    IRVar(Var* var) : IRDef(new IRSym(new PType(var->getType()), "@"+var->getName())) {}
     
     std::string toString() const override {
         std::string result = "global " + sym->toString();
         return result;
+    }
+
+    std::string toRiscV() const {
+        std::ostringstream oss;
+        oss << "  .globl" << std::endl;
+        oss << "  .bss" << std::endl;
+        oss << "  .align 2" << std::endl;
+        oss << "  .type " << sym->getName() <<", @object" << std::endl;
+        oss << "  .size " << sym->getName() << ", " << sym->getType()->getSize() << std::endl;
+        oss << sym->getName() << ":" << std::endl;
+        oss << "  .zero " << sym->getType()->getSize() << std::endl;
+        return oss.str();
     }
 };
 
@@ -127,7 +144,7 @@ private:
     std::vector<IRInstr*> instrs;
     IRInstr* endInstr;
     std::vector<IRSym*> params; // 用于 SSA 形式的参数
-
+    std::vector<Instr*> rv_instrs;
 public:
     explicit BasicBlock(IRSym* label) : label(label), endInstr(nullptr) {}
     
@@ -135,6 +152,8 @@ public:
     
     // 添加普通指令
     void addInstr(IRInstr* instr);
+
+    void add(Instr* instr) { rv_instrs.push_back(instr); }
     
     // 设置终结指令（跳转、分支或返回）
     void setEndInstr(IRInstr* instr);
@@ -155,6 +174,8 @@ public:
     
     // 打印基本块
     void print(std::ostream& os) const;
+
+    std::string toRiscV() const;
 };
 
 /**
@@ -164,26 +185,58 @@ class IRFunc : public IRDef {
 private:
     std::vector<IRSym*> params;
     std::vector<BasicBlock*> blocks;
+    std::set<IRFunc*> calls;
     std::unordered_map<std::string, BasicBlock*> blockMap;
     SymbolTable<IRSym*>* st{nullptr};
-
+    int size {-1};
+    int paramSize{-1};
+    std::vector<Instr*> entry;
+    IRSym* epilogueLabel {nullptr};
+    std::vector<Instr*> epilogue;
 public:
     IRFunc(IRSym* sym, const std::vector<IRSym*>& params)
         : IRDef(sym), params(params) {}
 
     IRFunc(const Func* func) : IRDef(new IRSym(func->getType(), "@"+func->getName())) {
         auto ps = func->getParams();
-        for (auto p : ps) {
+        for (int i = 0; i < ps.size(); i++) {
+            auto p = ps[i];
             auto type = p->getType();
             if (auto t = dynamic_cast<FType*>(type)) {
-                addParam(new IRSym(new PType(type), "@"+p->getName()));
+                IRSym* sym = new IRSym(new PType(type), "@"+p->getName());
+                addParam(sym);
             } else if (auto t = dynamic_cast<AType*>(type)) {
-                addParam(new IRSym(new PType(type), "@"+p->getName()));
+                IRSym* sym = new IRSym(new PType(type), "@"+p->getName());
+                addParam(sym);
             } else {
-                addParam(new IRSym(type, "@"+p->getName()));
+                IRSym* sym = new IRSym(type, "@"+p->getName());
+                addParam(sym);
             }
         }
     }
+
+    void addEntryInstr(Instr* instr) { entry.push_back(instr); }
+    void addEpilogueInstr(Instr* instr) { epilogue.push_back(instr); }
+
+    void addCall(IRFunc* call) {
+        if (call)
+            calls.insert(call);
+    }
+
+    std::set<IRFunc*> getCalls() {
+        return calls;
+    }
+
+    void setSize(int s) { size = s; }
+    int getSize() { return size; }
+    void setParamSize(int s) { paramSize = s; }
+    int getParamSize() { return paramSize; }
+
+    void setEpilogueLabel(IRSym* sym) {
+        epilogueLabel = sym;
+    }
+
+    IRSym* getEpilogueLabel() { return epilogueLabel; }
     
     // 添加参数
     void addParam(IRSym* param) {
@@ -200,6 +253,8 @@ public:
     BasicBlock* getEntryBlock() {
         return blocks.empty() ? nullptr : blocks[0];
     }
+
+    std::vector<BasicBlock*> getBlocks() { return blocks; }
     
     // 获取参数列表
     const std::vector<IRSym*>& getParams() const { return params; }
@@ -226,6 +281,8 @@ public:
 
     void setST(SymbolTable<IRSym*>* table) { st = table; }
     SymbolTable<IRSym*>* getST() { return st; }
+
+    std::string toRiscV() const;
 };
 
 /**
@@ -244,11 +301,15 @@ public:
     void addGlobal(IRVar* global) {
         globls.push_back(global);
     }
+
+    std::vector<IRVar*> getGlobal() { return globls; }
     
     // 添加函数
     void addFunc(IRFunc* func) {
         funcs.push_back(func);
     }
+
+    std::vector<IRFunc*> getFunc() { return funcs; }
 
     void addDecl(IRDef* def) {
         if (auto func = dynamic_cast<IRFunc*>(def)) {
@@ -272,6 +333,15 @@ public:
     void print(std::ostream& os) const;
     void setST(SymbolTable<IRSym*>* table) { st = table; }
     SymbolTable<IRSym*>* getST() { return st; }
+
+    void printRV(std::ostream& os) const {
+        for (auto var : globls) {
+            os << var->toRiscV() << std::endl;
+        }
+        for (auto func : funcs) {
+            os << func->toRiscV() << std::endl;
+        }
+    }
 };
 
 /**
@@ -305,7 +375,8 @@ class IRAlloc : public IRInstr {
 private:
     IRSym* dst;
     IType* type;
-
+    /// @brief 相对于FP的位置
+    int position {-1};
 public:
     IRAlloc(IRSym* dst, IType* type) : dst(dst), type(type) {
         def.push_back(dst);
@@ -315,8 +386,11 @@ public:
     IType* getAllocType() const { return type; }
     
     std::string toString() const override {
-        return dst->toString() + " = alloc " + type->toString();
+        return dst->toString() + " = alloc " + type->toString() + (position == -1 ? "" : "[allocated in fp" + std::to_string(position) + "]") ;
     }
+    void setPosition(int pos) { position = pos; }
+    int getPosition() { return position; }
+    
 };
 
 /**
@@ -646,11 +720,12 @@ private:
     IRSym* func;
     std::vector<IRVal*> args;
     IRSym* result; // 可选的返回值
+    IRFunc* resolution;
 
 public:
     // 无返回值的构造函数
     IRCall(IRSym* func, std::vector<IRVal*> args)
-        : func(func), args(args), result(nullptr) {
+        : func(func), args(args), result(nullptr), resolution(nullptr) {
         
         use.push_back(func);
         
@@ -664,7 +739,7 @@ public:
     
     // 有返回值的构造函数
     IRCall(IRSym* result, IRSym* func, std::vector<IRVal*> args)
-        : func(func), args(args), result(result) {
+        : func(func), args(args), result(result), resolution(nullptr) {
         
         if (result) {
             def.push_back(result);
@@ -683,6 +758,8 @@ public:
     IRSym* getFunc() const { return func; }
     const std::vector<IRVal*>& getArgs() const { return args; }
     IRSym* getResult() const { return result; }
+    IRFunc* getResolution() { return resolution; }
+    void resolve(IRFunc* func) { resolution = func; }
     
     std::string toString() const override {
         std::string resultStr = result ? result->toString() + " = " : "";

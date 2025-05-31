@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 #include "util/parsetree.hpp"  
 #include "util/astnodes.hpp"     
 #include "util/error.hpp"    
@@ -11,8 +12,9 @@ class AstBuilder {
 private:
     std::vector<Error> errors;
     
-    void err(Token token, std::string errMsg) {
-        Error error("Semantic", token.getPos(), errMsg);
+    void err(ParseTreeNode* node, std::string errMsg) {
+        size_t pos[4] = {node->start.getPos()[0], node->start.getPos()[1], node->end.getPos()[2], node->end.getPos()[3]};
+        Error error("Semantic", pos, errMsg);
         errors.push_back(error);
     }
     
@@ -29,6 +31,11 @@ public:
     void clearErrors() { errors.clear(); }
 
     void outputErrors(std::string file);
+    void printErrors() {
+        for (auto e : errors) {
+            std::cout << e.toString() << std::endl;
+        }
+    }
     bool hasErr() { return !errors.empty(); }
 
     void clear() { errors.clear(); }

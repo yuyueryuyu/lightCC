@@ -1,6 +1,4 @@
 build/
-antlr/
-otherlab/
 .vscode/
 test/
 testcase/

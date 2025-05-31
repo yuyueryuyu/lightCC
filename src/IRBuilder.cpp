@@ -55,6 +55,7 @@ IRVal* IRBuilder::visitExpr(Node* node) {
 // 程序节点
 IRProgram* IRBuilder::visitProgram(Program* program) {
     IRProgram* irProg = new IRProgram();
+    irprog = irProg;
     for (auto decl : program->getDecls()) {
         auto sym = visitSymbol(decl);
         irProg->addDecl(sym);
@@ -63,6 +64,7 @@ IRProgram* IRBuilder::visitProgram(Program* program) {
     std::vector<IRSym*> v2;
     auto main_type = new FType(&VOID_TYPE, v);    
     auto main_func = new IRFunc(new IRSym(main_type, "__main__"), v2);
+    main_func->setEpilogueLabel(genLocalLabel());
     currentBlock = new BasicBlock(genLocalLabel());
     currentFunc = main_func;
     currentFunc->addBlock(currentBlock);
@@ -81,11 +83,11 @@ IRDef* IRBuilder::visitFunc(FuncDecl* funcDecl) {
     currentST->put("@"+func->getName(), irFunc->getSym());
     
     if (func->isParameter()) return irFunc;
-    
+    irFunc->setEpilogueLabel(genLocalLabel());
     currentST = new SymbolTable<IRSym*>(currentST);
     currentBlock = new BasicBlock(genLocalLabel());
     currentFunc = irFunc;
-    
+
     currentFunc->addBlock(currentBlock);
     for (int i = 0; i < func->getParams().size(); i++) {
         auto param = func->getParams()[i];
@@ -93,7 +95,7 @@ IRDef* IRBuilder::visitFunc(FuncDecl* funcDecl) {
         currentST->put(paramSym->getName(), paramSym);
 
         auto paramType = param->getType();
-        auto temp = genLocalSym(paramType, param->getName());
+        auto temp = genLocalSym(new PType(paramType), param->getName());
         auto alloc = new IRAlloc(temp, paramType);
         currentBlock->addInstr(alloc);
         
@@ -104,8 +106,8 @@ IRDef* IRBuilder::visitFunc(FuncDecl* funcDecl) {
     for (auto decl : funcDecl->getDecls()) {
         auto varDecl = dynamic_cast<VarDecl*>(decl);
         IRDef* var = visitSymbol(decl);
-        auto temp = genLocalSym(new PType(var->getSym()->getType()), varDecl->getId()->getName());
-        auto alloc = new IRAlloc(temp, var->getSym()->getType());
+        auto temp = genLocalSym(var->getSym()->getType(), varDecl->getId()->getName());
+        auto alloc = new IRAlloc(temp, dynamic_cast<PType*>(var->getSym()->getType())->getBase());
         currentBlock->addInstr(alloc);
     }
     
@@ -124,7 +126,7 @@ IRDef* IRBuilder::visitFunc(FuncDecl* funcDecl) {
 IRDef* IRBuilder::visitVar(VarDecl* varDecl) {
     Var* var = varDecl->getResolution();
     IRVar* irVar = new IRVar(var);
-    currentST->put("@"+var->getName(), new IRSym(new PType(var->getType()), "@"+var->getName()));
+    currentST->put(irVar->getSym()->getName(), irVar->getSym());
     return irVar;
 }
 
@@ -230,8 +232,10 @@ void IRBuilder::visitExprEval(ExprEval* exprEval) {
             currentBlock->addInstr(call);
         } else if (currentST->declaresRecursive("@"+call->getId()->getName())) {
             auto funcLabel = *currentST->getRecursive("@"+call->getId()->getName());
-            auto call = new IRCall(funcLabel, args);
-            currentBlock->addInstr(call);
+            auto ircall = new IRCall(funcLabel, args);
+            ircall->resolve(irprog->getFunction("@"+call->getId()->getName()));
+            currentFunc->addCall(irprog->getFunction("@"+call->getId()->getName()));
+            currentBlock->addInstr(ircall);
         }
     }
 }
@@ -260,8 +264,10 @@ IRVal* IRBuilder::visitCall(Call* call) {
         currentBlock->addInstr(call);
     } else if (currentST->declaresRecursive("@"+call->getId()->getName())) {
         auto funcLabel = *currentST->getRecursive("@"+call->getId()->getName());
-        auto call = new IRCall(sym, funcLabel, args);
-        currentBlock->addInstr(call);
+        auto ircall = new IRCall(sym, funcLabel, args);
+        ircall->resolve(irprog->getFunction("@"+call->getId()->getName()));
+        currentFunc->addCall(irprog->getFunction("@"+call->getId()->getName()));
+        currentBlock->addInstr(ircall);
     }
     return sym;
 }

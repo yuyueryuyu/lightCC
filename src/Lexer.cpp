@@ -19,17 +19,21 @@ void Lexer::lex(string input) {
             continue;
         }
         if (token == "") {
-            size_t pos[2]{i, i};
+            auto line_col = posToLineCol(i, input);
+            size_t pos[4]{line_col.first, line_col.second, line_col.first, line_col.second};
             err(pos, "near " + input.substr(i, 1));
             i++;
             //cout << "(" << token << ", " << str << ")" << endl;
         } else {
-            size_t pos[2]{ori, p.second};
+            auto start_lc = posToLineCol(ori, input);
+            auto end_lc = posToLineCol(i, input);
+            size_t pos[4]{start_lc.first, start_lc.second, end_lc.first, end_lc.second};
             Token t(pos, token, input.substr(ori, p.second));
             tokens.push_back(t);
         }
     }
-    size_t pos[2]{input.size(), input.size()};
+    auto lc = posToLineCol(input.size(), input);
+    size_t pos[4]{lc.first, lc.second, lc.first, lc.second};
     Token t(pos, "EOF", "");
     tokens.push_back(t);
 }

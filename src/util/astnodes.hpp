@@ -34,13 +34,15 @@ class Program;
 class Node {
 private:
     /// @brief 结点在源程序的位置
-    size_t pos[2];
+    size_t pos[4];
 public:
     /// @brief 根据token构建结点类
     /// @param token 
-    Node(Token token) {
-        pos[0] = token.getPos()[0];
-        pos[1] = token.getPos()[1];
+    Node(Token start, Token end) {
+        pos[0] = start.getPos()[0];
+        pos[1] = start.getPos()[1];
+        pos[2] = end.getPos()[2];
+        pos[3] = end.getPos()[3];
     }
 
     /// @brief 直接根据位置构建节点类
@@ -48,6 +50,8 @@ public:
     Node(size_t p[]) {
         pos[0] = p[0];
         pos[1] = p[1];
+        pos[2] = p[2];
+        pos[3] = p[3];
     }
 
     /// @brief 析构函数
@@ -63,7 +67,7 @@ class Decl : public Node {
 public:
     /// @brief 根据token构建声明类
     /// @param token 
-    Decl(Token token) : Node(token) {}
+    Decl(Token start, Token end) : Node(start, end) {}
 
     /// @brief 析构函数
     virtual ~Decl() = default;
@@ -77,7 +81,7 @@ private:
 public:
     /// @brief 根据token构建表达式类
     /// @param token 
-    Expr(Token token) : Node(token) {}
+    Expr(Token start, Token end) : Node(start, end) {}
 
     /// @brief 根据位置构建表达式类
     /// @param pos 
@@ -131,7 +135,7 @@ class Literal : public Expr {
 public:
     /// @brief 构造函数
     /// @param token 
-    Literal(Token token) : Expr(token) {}
+    Literal(Token start, Token end) : Expr(start, end) {}
 
     /// @brief 析构函数
     virtual ~Literal() = default;
@@ -146,7 +150,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param val 整数值
-    Int(Token token, int val) : Literal(token), value(val) {}
+    Int(Token start, Token end, int val) : Literal(start, end), value(val) {}
 
     /// @brief 获取值
     /// @return AST结点的整数值
@@ -162,7 +166,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param val 数值
-    Float(Token token, float val) : Literal(token), value(val) {}
+    Float(Token start, Token end, float val) : Literal(start, end), value(val) {}
 
     /// @brief 获取浮点数值
     /// @return AST结点的浮点数值
@@ -179,7 +183,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param name 名称
-    Id(Token token, std::string name) : Expr(token), name(name) {}
+    Id(Token start, Token end, std::string name) : Expr(start, end), name(name) {}
 
     /// @brief 获取名称 
     /// @return 标识符的名称
@@ -202,7 +206,7 @@ public:
     /// @param token 
     /// @param id 数组标识符
     /// @param index 数组下标
-    Index(Token token, Id* id, Expr* index) : Expr(token), id(id), index(index) {}
+    Index(Token start, Token end, Id* id, Expr* index) : Expr(start, end), id(id), index(index) {}
 
     /// @brief 析构函数
     ~Index() { delete id; delete index; }
@@ -232,8 +236,8 @@ public:
     /// @param op 运算符
     /// @param left 左操作元
     /// @param right 右操作元
-    Binary(Token token, char op, Expr* left, Expr* right) :
-        Expr(token), op(op), left(left), right(right) {
+    Binary(Token start, Token end, char op, Expr* left, Expr* right) :
+        Expr(start, end), op(op), left(left), right(right) {
     }
 
     /// @brief 析构函数
@@ -281,8 +285,8 @@ public:
     /// @param token 
     /// @param id 函数标识符 
     /// @param args 实参列表
-    Call(Token token, Id* id, std::vector<Expr*> args) :
-        Expr(token), id(id), args(args) {
+    Call(Token start, Token end, Id* id, std::vector<Expr*> args) :
+        Expr(start, end), id(id), args(args) {
     }
 
     /// @brief 析构函数
@@ -321,7 +325,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param typeName 类型名称 
-    Type(Token token, std::string typeName) : Node(token), name(typeName) {}
+    Type(Token start, Token end, std::string typeName) : Node(start, end), name(typeName) {}
 
     /// @brief 获取类型名
     /// @return 类型名
@@ -333,7 +337,7 @@ class Stmt : public Node {
 public:
     /// @brief 构造函数
     /// @param token 
-    Stmt(Token token) : Node(token) {}
+    Stmt(Token start, Token end) : Node(start, end) {}
     
     /// @brief 析构函数 
     virtual ~Stmt() = default;
@@ -352,7 +356,7 @@ public:
     /// @param token 
     /// @param target 左值
     /// @param val 右值
-    Assign(Token token, Expr* target, Expr* val) : Stmt(token), target(target), value(val) {}
+    Assign(Token start, Token end, Expr* target, Expr* val) : Stmt(start, end), target(target), value(val) {}
     
     /// @brief 析构函数
     ~Assign() { delete target; delete value; }
@@ -388,8 +392,8 @@ public:
     /// @param cond 条件 
     /// @param thenStmt 条件为真跳转的语句 
     /// @param elseStmt 条件为假跳转的语句 (默认为null)
-    If(Token token, Expr* cond, Stmt* thenStmt, Stmt* elseStmt = nullptr) :
-        Stmt(token), cond(cond), thenStmt(thenStmt), elseStmt(elseStmt) {
+    If(Token start, Token end, Expr* cond, Stmt* thenStmt, Stmt* elseStmt = nullptr) :
+        Stmt(start, end), cond(cond), thenStmt(thenStmt), elseStmt(elseStmt) {
     }
 
     /// @brief 析构函数
@@ -426,7 +430,7 @@ public:
     /// @param token 
     /// @param cond 条件
     /// @param body 循环体
-    While(Token token, Expr* cond, Stmt* body) : Stmt(token), cond(cond), body(body) {}
+    While(Token start, Token end, Expr* cond, Stmt* body) : Stmt(start, end), cond(cond), body(body) {}
 
     /// @brief 析构函数
     ~While() { delete cond; delete body; }
@@ -455,7 +459,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param val 返回值（默认为空，虽然文法是不准为空的，不准为空为什么要有void函数，都到最后再返回吗）
-    Return(Token token, Expr* val = nullptr) : Stmt(token), value(val) {}
+    Return(Token start, Token end, Expr* val = nullptr) : Stmt(start, end), value(val) {}
     
     /// @brief 析构函数
     ~Return() { delete value; }
@@ -481,7 +485,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param e 表达式
-    ExprEval(Token token, Expr* e) : Stmt(token), expr(e) {}
+    ExprEval(Token start, Token end, Expr* e) : Stmt(start, end), expr(e) {}
     
     /// @brief 析构函数
     ~ExprEval() { delete expr; }
@@ -500,7 +504,7 @@ public:
     /// @brief 构造函数
     /// @param token 
     /// @param statements 语句列表 
-    Block(Token token, std::vector<Stmt*> statements) : Stmt(token), body(statements) {}
+    Block(Token start, Token end, std::vector<Stmt*> statements) : Stmt(start, end), body(statements) {}
     
     /// @brief 析构函数
     ~Block() { for (auto stmt : body) delete stmt; }
@@ -529,8 +533,8 @@ public:
     /// @param type 类型
     /// @param id 变量名标识符
     /// @param len 长度
-    VarDecl(Token token, Type* type, Id* id, int len = 0) :
-        Decl(token), type(type), id(id), len(len) {
+    VarDecl(Token start, Token end, Type* type, Id* id, int len = 0) :
+        Decl(start, end), type(type), id(id), len(len) {
     }
 
     /// @brief 析构函数
@@ -578,9 +582,9 @@ public:
     /// @param params 形参列表
     /// @param decls 局部变量声明列表 
     /// @param stmts 语句列表
-    FuncDecl(Token token, Type* retType, Id* funcId, std::vector<Decl*> params,
+    FuncDecl(Token start, Token end, Type* retType, Id* funcId, std::vector<Decl*> params,
         std::vector<Decl*> decls, std::vector<Stmt*> stmts) :
-        Decl(token), retType(retType), id(funcId), params(params), decls(decls), stmts(stmts) {
+        Decl(start, end), retType(retType), id(funcId), params(params), decls(decls), stmts(stmts) {
     }
 
     /// @brief 析构函数
@@ -635,8 +639,8 @@ public:
     /// @param token 
     /// @param d 声明列表
     /// @param s 语句列表
-    Program(Token token, std::vector<Decl*> d, std::vector<Stmt*> s) :
-        Node(token), decls(d), stmts(s) {
+    Program(Token start, Token end, std::vector<Decl*> d, std::vector<Stmt*> s) :
+        Node(start, end), decls(d), stmts(s) {
     }
 
     /// @brief 析构函数

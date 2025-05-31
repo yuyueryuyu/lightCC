@@ -7,7 +7,7 @@
 class Token {
 private:
     /// @brief 源程序的位置
-    size_t position[2];
+    size_t position[4];
     /// @brief 词法单元记号
     std::string id;
     /// @brief 对应的字符串
@@ -18,6 +18,8 @@ public:
     Token() {
         this->position[0] = 0;
         this->position[1] = 0;
+        this->position[2] = 0;
+        this->position[3] = 0;
         this->id = "";
         this->value = "";
     }
@@ -29,6 +31,8 @@ public:
     Token(size_t position[], std::string id, std::string value) {
         this->position[0] = position[0];
         this->position[1] = position[1];
+        this->position[2] = position[2];
+        this->position[3] = position[3];
         this->id = id;
         this->value = value;
     }

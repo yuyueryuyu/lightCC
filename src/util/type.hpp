@@ -28,6 +28,8 @@ public:
     /// @brief 拷贝类型
     /// @return 拷贝指针
     virtual IType* clone() const = 0;
+
+    virtual int getSize() const = 0;
 };
 
 /// @brief 基本类型
@@ -71,6 +73,8 @@ public:
     virtual BType* clone() const override {
         return new BType(name);
     }
+
+    virtual int getSize() const { return 4; }
 };
 
 /// @brief 数组类型
@@ -122,6 +126,8 @@ public:
     virtual AType* clone() const override {
         return new AType(base, len);
     }
+
+    virtual int getSize() const { return 4 * len; }
 };
 
 /// @brief 函数类型
@@ -215,6 +221,8 @@ public:
         }
         return new FType(ret, clonedParams);
     }
+
+    virtual int getSize() const { return 0; }
 };
 
 /// @brief 指针类型
@@ -258,6 +266,8 @@ public:
     virtual PType* clone() const override {
         return new PType(base);
     }
+
+    virtual int getSize() const { return 4; }
 };
 
 /// @brief int类型

@@ -11,6 +11,7 @@
 
 class IRBuilder {
 private:
+    IRProgram* irprog{nullptr};
     SymbolTable<IRSym*>* currentST;
     SymbolTable<IRSym*>* globalST;
     BasicBlock* currentBlock{ nullptr };

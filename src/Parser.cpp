@@ -384,13 +384,13 @@ void LRParser::buildSLRTable() {
                 
                 // 检查是否已经有操作
                 if (action_table[state][col].type == REDUCE) {
-                    cout << "冲突：状态 " << state << " 在输入 " << symbol << " 上有S/R冲突，自动移进解决" << endl;
+                    //cout << "冲突：状态 " << state << " 在输入 " << symbol << " 上有S/R冲突，自动移进解决" << endl;
                     action_table[state][col] = ActionEntry(SHIFT, next_state);
                     continue;
                 }
                 if (action_table[state][col].type != ERR) {
                     has_conflicts = true;
-                    cout << "冲突：状态 " << state << " 在输入 " << symbol << " 上有多个操作" << endl;
+                    //cout << "冲突：状态 " << state << " 在输入 " << symbol << " 上有多个操作" << endl;
                 }
                 
                 action_table[state][col] = ActionEntry(SHIFT, next_state);
@@ -412,7 +412,7 @@ void LRParser::buildSLRTable() {
                     // 检查是否已经有操作
                     if (action_table[state][col].type != ERR) {
                         has_conflicts = true;
-                        cout << "冲突：状态 " << state << " 在输入 EOF 上有多个操作" << endl;
+                        //cout << "冲突：状态 " << state << " 在输入 EOF 上有多个操作" << endl;
                     }
                     
                     action_table[state][col] = ActionEntry(ACCEPT, item.production.id);
@@ -422,13 +422,13 @@ void LRParser::buildSLRTable() {
                         if (terminals.find(terminal) != terminals.end()) {
                             int col = terminal_indices[terminal];
                             if (action_table[state][col].type == SHIFT) {
-                                cout << "冲突：状态 " << state << " 在输入 " << terminal << " 上S/R冲突, 默认进行移进操作解决" << endl;
+                                //cout << "冲突：状态 " << state << " 在输入 " << terminal << " 上S/R冲突, 默认进行移进操作解决" << endl;
                                 continue;
                             }
                             // 检查是否已经有操作
                             if (action_table[state][col].type != ERR) {
                                 has_conflicts = true;
-                                cout << "冲突：状态 " << state << " 在输入 " << terminal << " 上有多个操作" << endl;
+                                //cout << "冲突：状态 " << state << " 在输入 " << terminal << " 上有多个操作" << endl;
                             }
                             
                             action_table[state][col] = ActionEntry(REDUCE, item.production.id);
@@ -726,7 +726,7 @@ void LRParser::printProductions() const {
     cout << "----------------" << endl;
 }
 
-ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
+ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens, bool check) {
     // 清理之前的解析树
     if (parse_tree_root) {
         delete parse_tree_root;
@@ -735,7 +735,8 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
     
     // 检查分析表是否已构建
     if (action_table.empty()) {
-        cout << "分析表尚未构建！" << endl;
+        if (!check)
+            cout << "分析表尚未构建！" << endl;
         return nullptr;
     }
     
@@ -754,19 +755,20 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
     for (const string& terminal : terminals) {
         terminal_indices[terminal] = idx++;
     }
-    
-    cout << "开始解析..." << endl;
+    if (!check)
+        cout << "开始解析..." << endl;
     bool panick = false;
     while (true) {
         // 获取当前状态和输入符号
         int current_state = state_stack.back();
         Token current_input = input_buffer[input_index];
-        
-        cout << "状态: " << current_state << ", 输入: " << current_input.toString();
+        if (!check)
+            cout << "状态: " << current_state << ", 输入: " << current_input.toString();
         
         // 检查输入符号是否在分析表中
         if (terminal_indices.find(current_input.getId()) == terminal_indices.end()) {
-            cout << " -> 错误：未知的输入符号 " << current_input.getId() << endl;
+            if (!check)
+                cout << " -> 错误：未知的输入符号 " << current_input.getId() << endl;
             err(current_input, "Unknown input token: " + current_input.getId());
             input_index++;
             continue;
@@ -778,15 +780,14 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
         
         if (action.type == SHIFT) {
             // 移进操作
-            cout << " -> 移进到状态 " << action.value << endl;
+            if (!check) cout << " -> 移进到状态 " << action.value << endl;
             
             // 将输入符号移进栈中
             state_stack.push_back(action.value);
             panick = false;
             
             // 创建终结符节点并压入符号栈
-            ParseTreeNode* terminal_node = new ParseTreeNode(current_input.getId(), true, current_input.getValue());
-            terminal_node->set_token(current_input);
+            ParseTreeNode* terminal_node = new ParseTreeNode(current_input.getId(), current_input);
             symbol_stack.push_back(terminal_node);
             
             // 移动输入指针
@@ -796,18 +797,18 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
         } else if (action.type == REDUCE) {
             // 归约操作
             const Production& reduction = productions[action.value];
-            cout << " -> 用产生式 " << action.value << " 归约: " << reduction.left << " -> ";
+            if (!check) cout << " -> 用产生式 " << action.value << " 归约: " << reduction.left << " -> ";
             if (reduction.right.empty()) {
-                cout << "ε";
+                //cout << "ε";
             } else {
                 for (const string& sym : reduction.right) {
-                    cout << sym << " ";
+                   if (!check) cout << sym << " ";
                 }
             }
-            cout << endl;
+            if (!check)cout << endl;
             
             // 创建非终结符节点
-            ParseTreeNode* non_terminal_node = new ParseTreeNode(reduction.left, false);
+            ParseTreeNode* non_terminal_node;
             
             // 弹出相应数量的状态和符号
             int pop_count = reduction.right.size();
@@ -815,7 +816,7 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
             // 处理空产生式的情况
             if (reduction.right.empty()) {
                 // 对于空产生式，创建一个ε节点
-
+                non_terminal_node = new ParseTreeNode(reduction.left, Token(), Token());
             } else {
                 // 收集归约涉及的符号节点（它们将成为新节点的子节点）
                 vector<ParseTreeNode*> reduction_nodes;
@@ -827,8 +828,8 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
                 
                 // 由于栈是后进先出，需要反转子节点顺序
                 reverse(reduction_nodes.begin(), reduction_nodes.end());
+                non_terminal_node = new ParseTreeNode(reduction.left, reduction_nodes[0]->start, reduction_nodes[reduction_nodes.size()-1]->end);
                 non_terminal_node->children = reduction_nodes;
-                non_terminal_node->set_token(reduction_nodes[0]->token);
             }
             
             // 压入新的非终结符节点
@@ -840,7 +841,7 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
             if (goto_table[new_state].find(reduction.left) != goto_table[new_state].end()) {
                 state_stack.push_back(goto_table[new_state][reduction.left]);
             } else {
-                cout << "错误：GOTO表中找不到对应项 (" << new_state << ", " << reduction.left << ")" << endl;
+                if (!check) cout << "错误：GOTO表中找不到对应项 (" << new_state << ", " << reduction.left << ")" << endl;
                 err(current_input, "Unknown Reduce Item near: " + current_input.getId());
                 continue;
             }
@@ -849,18 +850,18 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
             // 接受操作
             // 归约操作
             const Production& reduction = productions[action.value];
-            cout << " -> 用产生式 " << action.value << " 归约: " << reduction.left << " -> ";
+            if (!check) cout << " -> 用产生式 " << action.value << " 归约: " << reduction.left << " -> ";
             if (reduction.right.empty()) {
-                cout << "ε";
+                if (!check) cout << "ε";
             } else {
                 for (const string& sym : reduction.right) {
-                    cout << sym << " ";
+                    if (!check) cout << sym << " ";
                 }
             }
-            cout << endl;
+            if (!check) cout << endl;
             
             // 创建非终结符节点
-            ParseTreeNode* non_terminal_node = new ParseTreeNode(reduction.left, false);
+            ParseTreeNode* non_terminal_node;
             
             // 弹出相应数量的状态和符号
             int pop_count = reduction.right.size();
@@ -868,8 +869,7 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
             // 处理空产生式的情况
             if (reduction.right.empty()) {
                 // 对于空产生式，创建一个ε节点
-                ParseTreeNode* epsilon_node = new ParseTreeNode("ε", true, "ε");
-                non_terminal_node->children.push_back(epsilon_node);
+                non_terminal_node = new ParseTreeNode(reduction.left, Token(), Token());
             } else {
                 // 收集归约涉及的符号节点（它们将成为新节点的子节点）
                 vector<ParseTreeNode*> reduction_nodes;
@@ -881,27 +881,28 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
                 
                 // 由于栈是后进先出，需要反转子节点顺序
                 reverse(reduction_nodes.begin(), reduction_nodes.end());
+                non_terminal_node = new ParseTreeNode(reduction.left, reduction_nodes[0]->start, reduction_nodes[reduction_nodes.size()-1]->end);
                 non_terminal_node->children = reduction_nodes;
             }
             
             // 压入新的非终结符节点
             symbol_stack.push_back(non_terminal_node);
             panick = false;
-            cout << " -> 接受！解析成功。" << endl;
+            if (!check) cout << " -> 接受！解析成功。" << endl;
             
             // 解析成功，返回解析树根节点
             if (!symbol_stack.empty()) {
                 parse_tree_root = symbol_stack.back();
                 return parse_tree_root;
             } else {
-                cout << "错误：符号栈为空，无法获取解析树根节点。" << endl;
+                if (!check) cout << "错误：符号栈为空，无法获取解析树根节点。" << endl;
                 err(current_input, "Stack is null.");
                 return nullptr;
             }
             
         } else {
             // 错误
-            cout << " -> 错误：无效操作" << endl;
+            if (!check) cout << " -> 错误：无效操作" << endl;
             if (!panick)
                 err(current_input, "near "+ current_input.getId() + ".");
             panick = true;
@@ -910,7 +911,7 @@ ParseTreeNode* LRParser::parseTokens(const vector<Token>& tokens) {
             continue;
         }
         
-        cout << endl;
+        if (!check) cout << endl;
     }
 }
 
@@ -919,7 +920,7 @@ void LRParser::printParseTree() const {
     if (parse_tree_root) {
         parse_tree_root->print();
     } else {
-        cout << "解析失败!" << endl;
+        //cout << "解析失败!" << endl;
     }
 }
 

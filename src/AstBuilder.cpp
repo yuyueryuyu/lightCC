@@ -19,27 +19,27 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
             stmts.push_back(dynamic_cast<Stmt*>(n));
         }
         
-        return new Program(node->token, decls, stmts);
+        return new Program(node->start, node->end, decls, stmts);
     } else if (node->symbol == "Decl") {
         if (node->children.size() == 2) {
             // Type ID
             Type* type = dynamic_cast<Type*>(visit(node->children[0]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
-            return new VarDecl(node->token, type, id, 0);
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
+            return new VarDecl(node->start, node->end, type, id, 0);
         } else if (node->children.size() == 5) {
             // Type ID LBK NUM RBK
             Type* type = dynamic_cast<Type*>(visit(node->children[0]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
             int dimension = stoi(node->children[3]->token_value);
             if (dimension <= 0) {
-                err(node->token, "dimension is not positive");
+                err(node, "dimension is not positive");
                 dimension = 1;
             }
-            return new VarDecl(node->token, type, id, dimension);
+            return new VarDecl(node->start, node->end, type, id, dimension);
         } else if (node->children.size() == 9) {
             // Type ID LPA Params RPA LBR Decls Stmts RBR
             Type* retType = dynamic_cast<Type*>(visit(node->children[0]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
             vector<Node*> params_nodes = visitParams(node->children[3]);
             vector<Node*> decls_nodes = visitDecls(node->children[6]);
             vector<Node*> stmts_nodes = visitStmts(node->children[7]);
@@ -58,31 +58,31 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
                 stmts.push_back(dynamic_cast<Stmt*>(n));
             }
             
-            return new FuncDecl(node->token, retType, id, params, decls, stmts);
+            return new FuncDecl(node->start, node->end, retType, id, params, decls, stmts);
         }
     } else if (node->symbol == "Type") {
-        return new Type(node->token, node->children[0]->token_value);
+        return new Type(node->start, node->end, node->children[0]->token_value);
     } else if (node->symbol == "Param") {
         if (node->children.size() == 2) {
             // Type ID
             Type* type = dynamic_cast<Type*>(visit(node->children[0]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
-            return new VarDecl(node->token, type, id, 0);
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
+            return new VarDecl(node->start, node->end, type, id, 0);
         } else if (node->children.size() == 4) {
             // Type ID LBK RBK
             Type* type = dynamic_cast<Type*>(visit(node->children[0]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
-            return new VarDecl(node->token, type, id, -1); // -1表示数组参数
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
+            return new VarDecl(node->start, node->end, type, id, -1); // -1表示数组参数
         } else if (node->children.size() == 5) {
             // Type ID LPA Type RPA (函数指针参数
             Type* type = dynamic_cast<Type*>(visit(node->children[0]));
             Type* paramType = dynamic_cast<Type*>(visit(node->children[3]));
-            Id* id = new Id(node->children[1]->token, node->children[1]->token_value);
+            Id* id = new Id(node->children[1]->start, node->children[1]->end, node->children[1]->token_value);
             vector<Decl *> params;
-            params.push_back(new VarDecl(node->children[3]->token, paramType, nullptr, 0));
+            params.push_back(new VarDecl(node->children[3]->start, node->children[3]->end, paramType, nullptr, 0));
             vector<Decl *> decls;
             vector<Stmt *> stmts;
-            return new FuncDecl(node->token, type, id, params, decls, stmts);
+            return new FuncDecl(node->start, node->end, type, id, params, decls, stmts);
         }
     } else if (node->symbol == "Stmt") {
         if (node->children.size() == 0) {
@@ -90,36 +90,36 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
             return nullptr;
         } else if (node->children.size() == 3 && node->children[1]->symbol == "ASG") {
             // ID ASG Expr
-            Id* target = new Id(node->children[0]->token, node->children[0]->token_value);
+            Id* target = new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
             Expr* value = dynamic_cast<Expr*>(visit(node->children[2]));
-            return new Assign(node->token, target, value);
+            return new Assign(node->start, node->end, target, value);
         } else if (node->children.size() == 6 && node->children[1]->symbol == "LBK") {
             // ID LBK Expr RBK ASG Expr
-            Id* id = new Id(node->children[0]->token, node->children[0]->token_value);
+            Id* id = new Id(node->children[0]->start, node->children[1]->end, node->children[0]->token_value);
             Expr* dimension = dynamic_cast<Expr*>(visit(node->children[2]));
-            Index* target = new Index(node->children[0]->token, id, dimension);
+            Index* target = new Index(node->children[0]->start, node->children[1]->end, id, dimension);
             Expr* value = dynamic_cast<Expr*>(visit(node->children[5]));
-            return new Assign(node->token, target, value);
+            return new Assign(node->start, node->end, target, value);
         } else if (node->children.size() == 5 && node->children[0]->symbol == "IF") {
             // IF LPA Cond RPA Stmt
             Expr* cond = dynamic_cast<Expr*>(visit(node->children[2]));
             Stmt* thenStmt = dynamic_cast<Stmt*>(visit(node->children[4]));
-            return new If(node->token, cond, thenStmt);
+            return new If(node->start, node->end, cond, thenStmt);
         } else if (node->children.size() == 7 && node->children[0]->symbol == "IF") {
             // IF LPA Cond RPA Stmt ELSE Stmt
             Expr* cond = dynamic_cast<Expr*>(visit(node->children[2]));
             Stmt* thenStmt = dynamic_cast<Stmt*>(visit(node->children[4]));
             Stmt* elseStmt = dynamic_cast<Stmt*>(visit(node->children[6]));
-            return new If(node->token, cond, thenStmt, elseStmt);
+            return new If(node->start, node->end, cond, thenStmt, elseStmt);
         } else if (node->children.size() == 5 && node->children[0]->symbol == "WHILE") {
             // WHILE LPA Cond RPA Stmt
             Expr* cond = dynamic_cast<Expr*>(visit(node->children[2]));
             Stmt* body = dynamic_cast<Stmt*>(visit(node->children[4]));
-            return new While(node->token, cond, body);
+            return new While(node->start, node->end, cond, body);
         } else if (node->children.size() == 2 && node->children[0]->symbol == "RETURN") {
             // RETURN Expr
             Expr* value = dynamic_cast<Expr*>(visit(node->children[1]));
-            return new Return(node->token, value);
+            return new Return(node->start, node->end, value);
         } else if (node->children.size() == 3 && node->children[0]->symbol == "LBR") {
             // LBR Stmts RBR
             vector<Node*> stmts_nodes = visitStmts(node->children[1]);
@@ -127,31 +127,31 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
             for (Node* n : stmts_nodes) {
                 stmts.push_back(dynamic_cast<Stmt*>(n));
             }
-            return new Block(node->token, stmts);
+            return new Block(node->start, node->end, stmts);
         } else if (node->children.size() == 4 && node->children[1]->symbol == "LPA") {
             // ID LPA Args RPA
-            Id* id = new Id(node->children[0]->token, node->children[0]->token_value);
+            Id* id = new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
             vector<Node*> args_nodes = visitArgs(node->children[2]);
             vector<Expr*> args;
             for (Node* n : args_nodes) {
                 args.push_back(dynamic_cast<Expr*>(n));
             }
-            Call* call = new Call(node->children[0]->token, id, args);
-            return new ExprEval(node->token, call);
+            Call* call = new Call(node->children[0]->start, node->children[1]->end, id, args);
+            return new ExprEval(node->start, node->end, call);
         }
     } else if (node->symbol == "Expr") {
         if (node->children.size() == 1) {
             if (node->children[0]->symbol == "NUM") {
                 // NUM
                 int value = stoi(node->children[0]->token_value);
-                return new Int(node->children[0]->token, value);
+                return new Int(node->children[0]->start, node->children[0]->end, value);
             } else if (node->children[0]->symbol == "FLO") {
                 // FLO
                 float value = stof(node->children[0]->token_value);
-                return new Float(node->children[0]->token, value);
+                return new Float(node->children[0]->start, node->children[0]->end, value);
             } else if (node->children[0]->symbol == "ID") {
                 // ID
-                return new Id(node->children[0]->token, node->children[0]->token_value);
+                return new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
             }
         } else if (node->children.size() == 3) {
             if (node->children[0]->symbol == "LPA") {
@@ -162,23 +162,23 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
                 Expr* left = dynamic_cast<Expr*>(visit(node->children[0]));
                 char op = (node->children[1]->symbol == "ADD") ? '+' : '*';
                 Expr* right = dynamic_cast<Expr*>(visit(node->children[2]));
-                return new Binary(node->children[1]->token, op, left, right);
+                return new Binary(node->children[1]->start, node->children[0]->end, op, left, right);
             }
         } else if (node->children.size() == 4) {
             if (node->children[1]->symbol == "LBK") {
                 // ID LBK Expr RBK
-                Id* id = new Id(node->children[0]->token, node->children[0]->token_value);
+                Id* id = new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
                 Expr* dimension = dynamic_cast<Expr*>(visit(node->children[2]));
-                return new Index(node->children[0]->token, id, dimension);
+                return new Index(node->children[0]->start, node->children[0]->end, id, dimension);
             } else if (node->children[1]->symbol == "LPA") {
                 // ID LPA Args RPA
-                Id* id = new Id(node->children[0]->token, node->children[0]->token_value);
+                Id* id = new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
                 vector<Node*> args_nodes = visitArgs(node->children[2]);
                 vector<Expr*> args;
                 for (Node* n : args_nodes) {
                     args.push_back(dynamic_cast<Expr*>(n));
                 }
-                return new Call(node->children[0]->token, id, args);
+                return new Call(node->children[0]->start, node->children[0]->end, id, args);
             }
         }
     } else if (node->symbol == "Cond") {
@@ -197,7 +197,7 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
             else if (node->children[1]->token_value == ">=") op = 'g';
             
             Expr* right = dynamic_cast<Expr*>(visit(node->children[2]));
-            return new Binary(node->children[1]->token, op, left, right);
+            return new Binary(node->children[1]->start, node->children[1]->end, op, left, right);
         }
     } else if (node->symbol == "Arg") {
         if (node->children.size() == 1) {
@@ -206,11 +206,11 @@ Node* AstBuilder::visit(ParseTreeNode* node) {
         } else if (node->children.size() == 3) {
             if (node->children[1]->symbol == "LBK") {
                 // ID LBK RBK
-                Id* id = new Id(node->children[0]->token, node->children[0]->token_value);
-                return new Index(node->children[0]->token, id, nullptr); // 空索引表示整个数组
+                Id* id = new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
+                return new Index(node->children[0]->start, node->children[0]->end, id, nullptr); // 空索引表示整个数组
             } else if (node->children[1]->symbol == "LBR") {
                 // ID LBR RBR
-                return new Id(node->children[0]->token, node->children[0]->token_value);
+                return new Id(node->children[0]->start, node->children[0]->end, node->children[0]->token_value);
             }
         }
     }

@@ -75,6 +75,11 @@ public:
     IType*  visitFloat(Float* floatLit);
 
     void outputErrors(std::string file);
+    void printErrors() {
+        for (auto e : errors) {
+            std::cout << e.toString() << std::endl;
+        }
+    }
     bool hasErr() { return !errors.empty(); }
     void clear() { errors.clear(); }
 };

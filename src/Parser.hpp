@@ -91,14 +91,14 @@ public:
     // 打印所有产生式
     void printProductions() const;
 
-    ParseTreeNode* parseTokens(const std::vector<Token>& tokens);
+    ParseTreeNode* parseTokens(const std::vector<Token>& tokens, bool check = false);
     
     // 打印解析树
     void printParseTree() const;
     
     // 将解析树导出为JSON文件
     void exportParseTreeToJSON(const std::string& filename) const;
-
+    bool hasErr() { return !errors.empty(); }
     void printErrors();
 
     void outputErrors(std::string file);

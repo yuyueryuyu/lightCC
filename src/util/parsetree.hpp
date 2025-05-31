@@ -16,26 +16,24 @@ struct ParseTreeNode {
     /// @brief 如果是终结符，存储token值
     std::string token_value;
     /// @brief 对应的token
-    Token token;
+    Token start;
+    Token end;
 
     /// @brief 构造函数 
     /// @param sym 符号名称
     /// @param is_term 是否终结符
     /// @param value token值
-    ParseTreeNode(const std::string& sym, bool is_term = false, const std::string& value = "") 
-        : symbol(sym), is_terminal(is_term), token_value(value) {}
-    
+    ParseTreeNode(const std::string& sym, Token start, Token end) 
+        : symbol(sym), is_terminal(false), token_value(""), start(start), end(end) {}
+
+    ParseTreeNode(const std::string& sym, Token terminal) 
+        : symbol(sym), is_terminal(true), token_value(terminal.getValue()), start(terminal), end(terminal) {}
+
     /// @brief 析构函数
     ~ParseTreeNode() {
         for (ParseTreeNode* child : children) {
             delete child;
         }
-    }
-
-    /// @brief 设置token 
-    /// @param token 
-    void set_token(const Token& token) {
-        this->token = token;
     }
     
     /// @brief 打印解析树
